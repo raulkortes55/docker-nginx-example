@@ -5,29 +5,45 @@ on:
     branches: [ main ]
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.REGISTRY_LOGIN }}
+          password: ${{ secrets.REGISTRY_SECRET }}
+
+      - name: Set up Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          build-args: NGINX_CONF=testing
+          push: true
+          tags: ghcr.io/raulkortes55/docker-nginx-example:v${{ github.run_number }},ghcr.io/raulkortes55/docker-nginx-example:latest
   deploy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Copy files to VPS
-      uses: appleboy/scp-action@master
+    - uses: nuclearpolygon/ssh-docker-compose-action@docker-context
+      name: Remote Deployment with Docker-Compose
       with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        source: "./"
-        target: "/var/www/straders.ru"
-    
-    - name: Run deploy commands
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.SSH_KEY }}
-        script: |
-          cd /var/www/straders.ru
-          docker-compose down
-          docker-compose build --no-cache
-          docker-compose up -d
-          sudo systemctl restart nginx
+            ssh_host: ${{ secrets.VPS_HOST }}
+            ssh_user: ${{ secrets.VPS_USER }}
+            ssh_private_key: ${{ secrets.SSH_KEY }}
+            docker_compose_prefix: test
+            docker_compose_filename: docker-compose.yml
+            pull: true
+            registry_login: ${{ secrets.REGISTRY_LOGIN }}
+            registry_secret: ${{ secrets.REGISTRY_SECRET }}
+  
