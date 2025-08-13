@@ -33,6 +33,7 @@ jobs:
           tags: ghcr.io/raulkortes55/docker-nginx-example:v${{ github.run_number }},ghcr.io/raulkortes55/docker-nginx-example:latest
   deploy:
     runs-on: ubuntu-latest
+    needs: build
     steps:
     - uses: actions/checkout@v3
     - uses: nuclearpolygon/ssh-docker-compose-action@docker-context
